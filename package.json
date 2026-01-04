@@ -1,9 +1,20 @@
 {
   "name": "@netflix-database/otel-instrumentation-next",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "OpenTelemetry instrumentation helpers for Next.js apps (Node runtime)",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./lib/index.js",
+      "require": "./lib/index.js"
+    },
+    "./logger": {
+      "import": "./lib/logger.js",
+      "require": "./lib/logger.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "lib"
   ],
