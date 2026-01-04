@@ -4,7 +4,9 @@ OpenTelemetry instrumentation helpers for Next.js Node runtime apps.
 
 ## Installation
 
-npm i --save otel-instrumentation-next
+```
+npm i @netflix-database/otel-instrumentation-next
+```
 
 ## Usage
 
@@ -13,7 +15,7 @@ Example usage in a Next.js `instrumentation.ts` file:
 ```ts
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs' && process.env.NODE_ENV !== 'development') {
-    const mod = await import('otel-instrumentation-next')
+    const mod = await import('@netflix-database/otel-instrumentation-next')
     // You can pass additional instrumentations (e.g., Prisma) and routes to ignore
     await mod.registerInstrumentation({ instrumentations: [], ignoreRoutes: ['/internal/health'] })
   }
