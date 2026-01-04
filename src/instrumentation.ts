@@ -12,6 +12,7 @@ import type { SpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { SimpleSpanProcessor } from '@opentelemetry/sdk-trace-node';
 import { format } from 'node:util';
 import { REQUEST_ID_BAGGAGE_KEY } from './constants';
+import { getLogger } from './logger';
 
 // minimal runtime state
 let sdk: NodeSDK | undefined;
@@ -81,11 +82,11 @@ export async function shutdownInstrumentation() {
  * Patch global console methods to use a provided logger (pino-like). This is optional and should be used with care.
  */
 async function patchConsoleWithLogger() {
-  const logger = await import("./logger").then((mod) => mod.logger);
+  const logger = getLogger();
 
   console.log = (...args: any[]) => logger.info({ args }, format(...args));
   console.info = (...args: any[]) => logger.info({ args }, format(...args));
   console.warn = (...args: any[]) => logger.warn({ args }, format(...args));
   console.error = (...args: any[]) => logger.error({ args }, format(...args));
   console.debug = (...args: any[]) => logger.debug({ args }, format(...args));
-}
+} 
