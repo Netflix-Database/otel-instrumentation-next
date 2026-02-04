@@ -1,5 +1,6 @@
 import type { Logger as PinoLogger } from 'pino';
 import pino from 'pino';
+import 'pino-pretty';
 
 const isProd = process.env.NODE_ENV === 'production';
 
