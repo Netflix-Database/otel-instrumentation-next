@@ -48,7 +48,7 @@
     "@opentelemetry/api-logs": "^0.219.0",
     "@opentelemetry/exporter-logs-otlp-grpc": "^0.215.0",
     "@opentelemetry/exporter-trace-otlp-grpc": "^0.215.0",
-    "@opentelemetry/instrumentation": "^0.215.0",
+    "@opentelemetry/instrumentation": "^0.219.0",
     "@opentelemetry/instrumentation-http": "^0.215.0",
     "@opentelemetry/instrumentation-pino": "^0.61.0",
     "@opentelemetry/instrumentation-undici": "^0.25.0",
