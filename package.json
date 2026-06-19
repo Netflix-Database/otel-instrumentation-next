@@ -45,7 +45,7 @@
     "typescript": "^6.0.3"
   },
   "dependencies": {
-    "@opentelemetry/api-logs": "^0.215.0",
+    "@opentelemetry/api-logs": "^0.219.0",
     "@opentelemetry/exporter-logs-otlp-grpc": "^0.215.0",
     "@opentelemetry/exporter-trace-otlp-grpc": "^0.215.0",
     "@opentelemetry/instrumentation": "^0.215.0",
