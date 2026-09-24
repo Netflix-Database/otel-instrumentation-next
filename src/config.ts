@@ -1,3 +1,4 @@
+import { hostname } from 'node:os';
 import {
   REQUIRED_RESOURCE_ATTRIBUTES,
   SEMCONV_STABILITY_OPT_IN,
@@ -74,6 +75,10 @@ export function loadConfig(): TelemetryConfig {
   if (process.env.OTEL_SERVICE_NAME) {
     resourceAttributes['service.name'] ??= process.env.OTEL_SERVICE_NAME;
   }
+  if (process.env.GIT_SHA) {
+    resourceAttributes['service.version'] ??= process.env.GIT_SHA;
+  }
+  resourceAttributes['service.instance.id'] ??= hostname();
   for (const key of REQUIRED_RESOURCE_ATTRIBUTES) {
     if (!resourceAttributes[key]) {
       problems.push(`OTEL_RESOURCE_ATTRIBUTES is missing "${key}"`);
