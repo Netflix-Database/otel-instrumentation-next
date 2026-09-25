@@ -154,9 +154,11 @@ export async function registerInstrumentation(opts: RegisterOptions = {}) {
     logRecordProcessors: [new BatchLogRecordProcessor({ exporter: new OTLPLogExporter() })],
 
     // Standard metrics are what the shared dashboard is built on.
-    metricReader: new PeriodicExportingMetricReader({
-      exporter: new OTLPMetricExporter(),
-    }),
+    metricReaders: [
+      new PeriodicExportingMetricReader({
+        exporter: new OTLPMetricExporter(),
+      }),
+    ],
 
     instrumentations: [...defaultInstrumentations(cfg, opts), ...(opts.instrumentations ?? [])],
   });
