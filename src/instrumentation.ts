@@ -5,15 +5,15 @@ import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-grpc';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-grpc';
 import { Instrumentation } from '@opentelemetry/instrumentation';
 import { AmqplibInstrumentation } from '@opentelemetry/instrumentation-amqplib';
+import { GraphQLInstrumentation } from '@opentelemetry/instrumentation-graphql';
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { IORedisInstrumentation } from '@opentelemetry/instrumentation-ioredis';
 import { MySQL2Instrumentation } from '@opentelemetry/instrumentation-mysql2';
-import { PgInstrumentation } from '@opentelemetry/instrumentation-pg';
 import { PinoInstrumentation } from '@opentelemetry/instrumentation-pino';
 import { RedisInstrumentation } from '@opentelemetry/instrumentation-redis';
 import { RuntimeNodeInstrumentation } from '@opentelemetry/instrumentation-runtime-node';
 import { UndiciInstrumentation } from '@opentelemetry/instrumentation-undici';
-import { resourceFromAttributes } from '@opentelemetry/resources';
+import { defaultResource, resourceFromAttributes } from '@opentelemetry/resources';
 import { BatchLogRecordProcessor } from '@opentelemetry/sdk-logs';
 import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
 import { NodeSDK } from '@opentelemetry/sdk-node';
@@ -72,9 +72,9 @@ export type RegisterOptions = {
  * Db, redis, http and rabbit spans, from the shared package so every
  * service emits the same attributes under the same semconv version.
  *
- * All five are registered unconditionally. The instrumentations are no-ops
+ * All are registered unconditionally. The instrumentations are no-ops
  * unless the corresponding module is actually loaded, so a service that has no
- * Postgres simply never produces pg spans - this costs nothing and removes a
+ * Redis simply never produces redis spans - this costs nothing and removes a
  * per-service decision that would otherwise drift.
  */
 function defaultInstrumentations(cfg: TelemetryConfig, opts: RegisterOptions): Instrumentation[] {
@@ -90,7 +90,19 @@ function defaultInstrumentations(cfg: TelemetryConfig, opts: RegisterOptions): I
       },
     }),
     new UndiciInstrumentation(),
-    new PgInstrumentation(),
+    new GraphQLInstrumentation({
+      // A resolver that only reads a property off its parent produces a span
+      // per field, which buries the resolvers that actually do work - and on a
+      // list of 200 issues that is thousands of spans for one query.
+      ignoreTrivialResolveSpans: true,
+      // One span for a list rather than one per element, for the same reason.
+      mergeItems: true,
+      // Argument values stay off. They carry whatever the caller sent -
+      // credentials in a login mutation, personal data in a filter - and spans
+      // are not a place for that. The operation name and document are enough
+      // to identify a query.
+      allowValues: false,
+    }),
     new MySQL2Instrumentation(),
     new IORedisInstrumentation(),
     new RedisInstrumentation(),
@@ -134,8 +146,11 @@ export async function registerInstrumentation(opts: RegisterOptions = {}) {
   sdk = new NodeSDK({
     // The validated attribute set, applied as a real Resource rather
     // than left to the env detector, so a typo fails at startup instead of
-    // producing an unlabelled service.
-    resource: resourceFromAttributes(cfg.resourceAttributes),
+    // producing an unlabelled service. Merged onto the default resource for
+    // telemetry.sdk.*: a resource passed in replaces the default outright,
+    // and without telemetry.sdk.language Node services drop out of every
+    // "by language" panel and filter on the shared dashboards.
+    resource: defaultResource().merge(resourceFromAttributes(cfg.resourceAttributes)),
 
     // Parent-based so a sampled trace stays sampled across service
     // hops - otherwise distributed traces come back with holes in them.

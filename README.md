@@ -96,12 +96,55 @@ always do both.
 
 ## What is instrumented
 
-HTTP (in and out), undici/fetch, Postgres, MySQL2, ioredis, node-redis,
+HTTP (in and out), undici/fetch, GraphQL, MySQL2, ioredis, node-redis,
 amqplib (RabbitMQ), pino, and Node runtime metrics (event loop lag, GC, heap).
+
+GraphQL records the operation and the resolvers that do real work: trivial
+field resolvers and per-item list resolvers are collapsed, because one query
+over a few hundred rows otherwise produces thousands of spans. Argument values
+are not recorded - they carry whatever the caller sent.
 
 All are registered unconditionally — an instrumentation whose module is never
 loaded is a no-op, which removes a per-service decision that would otherwise
 drift.
+
+**Bundled servers need two things.** These instrumentations patch modules as
+they are resolved, so they need the SDK up before the application loads, and
+they need the instrumented packages to still be real imports.
+
+Nitro 3 breaks both. Registering from a server plugin is too late - the bundle
+entry has already imported `node:http`, so not even HTTP spans appear - and
+Nitro inlines `mysql2`, `redis` and `graphql` into the bundle, leaving nothing
+to patch. Neither failure reports an error; the spans are simply absent.
+
+Start the SDK ahead of the server:
+
+```jsonc
+// package.json, or the image's CMD
+"start": "node --import ./otel-register.mjs .output/server/index.mjs"
+```
+
+```js
+// otel-register.mjs
+import { registerInstrumentation } from '@netflix-database/otel-instrumentation-next';
+
+const { shutdown } = await registerInstrumentation({ handleSignals: false });
+
+// The plugin runs from inside the bundle and holds a different copy of this
+// package, so hand the shutdown function over explicitly.
+globalThis.__netdbTelemetryShutdown = shutdown;
+```
+
+and keep the instrumented packages out of the bundle:
+
+```ts
+nitro({ rolldownConfig: { external: ['mysql2', 'mysql2/promise', 'redis', 'graphql'] } })
+```
+
+The preload resolves from `node_modules`, so the image has to ship production
+dependencies - and the externalized packages then resolve from the same place.
+Anything instrumented that is added later has to join the `external` list, or
+it is bundled and silently untraced.
 
 ## Configuration
 
