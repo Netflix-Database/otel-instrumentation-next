@@ -27,6 +27,7 @@ import { format } from 'node:util';
 import { applySemconvStabilityOptIn, loadConfig } from './config';
 import type { TelemetryConfig } from './config';
 import { LIVENESS_PATH, READINESS_PATH, REQUEST_ID_BAGGAGE_KEY } from './constants';
+import { NextRouteSpanProcessor } from './route';
 
 // This has to run before the instrumentation imports above take
 // effect on first patch, so it sits at module scope rather than inside
@@ -162,6 +163,8 @@ export async function registerInstrumentation(opts: RegisterOptions = {}) {
     // previous behaviour here.
     spanProcessors: [
       new BaggageToSpanAttributeProcessor(),
+      // Next.js routes onto the http span, which the dashboards count.
+      new NextRouteSpanProcessor(),
       new BatchSpanProcessor(new OTLPTraceExporter()),
     ],
 

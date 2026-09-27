@@ -22,6 +22,8 @@ export type { BaggagePolicy } from './middleware';
 export { livenessHandler, readinessHandler } from './health';
 export type { DependencyCheck, HealthResult } from './health';
 export { recordError, recordErrorOnActiveSpan, withErrorRecording } from './errors';
+export { createRouteMatcher, setHttpRoute } from './route';
+export type { RouteMatcher } from './route';
 // The logger itself stays on './logger', because importing it builds one. The
 // redaction contract is side-effect free and services need it to wire their own
 // transports the same way.

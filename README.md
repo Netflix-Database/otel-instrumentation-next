@@ -94,6 +94,44 @@ await withErrorRecording(async () => handler(req));
 counted as a failure and "error rate per endpoint" under-reports. These helpers
 always do both.
 
+### Routes
+
+Next.js apps need nothing: the package takes the route from Next.js's own
+spans ("resolve page components", "render route") and hands it to the http
+span, on every Next.js version. It cannot rely on Next.js doing that itself:
+Next attaches the route to its outermost span only after the response has
+finished, which is too late for the http span. Requests answered by Next.js
+middleware (redirects, rewrites) never reach a route and stay unlabelled.
+
+Every other framework needs to report the route, or its requests show as
+"(no route)" on the shared HTTP dashboards: the http instrumentation only ever
+sees the raw path.
+
+```ts
+import { createRouteMatcher, setHttpRoute } from '@netflix-database/otel-instrumentation-next/route';
+
+// Templates as the file router writes them: ":param", "*catchAll", "(group)".
+const matchRoute = createRouteMatcher(['/api/:project/members', '/:project/issues/:issue', '/*404']);
+
+// In middleware, inside the request:
+const route = matchRoute(new URL(request.url).pathname);
+if (route) setHttpRoute(route);
+```
+
+`setHttpRoute` goes through the same RPCMetadata the Express instrumentation
+uses. When the response finishes, the http instrumentation sets `http.route`
+and names the span `GET /api/:project/members`. The most specific template
+wins: static segments, then parameters, then catch-alls. Always pass the
+template, never the path: `http.route` is a metric label.
+
+For SolidStart, match against its own route list:
+
+```ts
+// @ts-expect-error virtual module
+import fileRoutes from 'solid-start:routes';
+const matchRoute = createRouteMatcher([...fileRoutes.map((r) => r.path), '/_server/*fn']);
+```
+
 ## What is instrumented
 
 HTTP (in and out), undici/fetch, GraphQL, MySQL2, ioredis, node-redis,
@@ -145,6 +183,39 @@ The preload resolves from `node_modules`, so the image has to ship production
 dependencies - and the externalized packages then resolve from the same place.
 Anything instrumented that is added later has to join the `external` list, or
 it is bundled and silently untraced.
+
+**Next.js has the same trap under a different name.** Next bundles most of
+`node_modules` into its server chunks, so an instrumented package has to be
+listed in `serverExternalPackages` or it is inlined and never traced:
+
+```js
+// next.config.mjs
+serverExternalPackages: [
+  '@netflix-database/otel-instrumentation-next',
+  '@opentelemetry/sdk-node',
+  '@opentelemetry/instrumentation',
+  '@opentelemetry/instrumentation-undici',
+  '@opentelemetry/instrumentation-pino',
+  'pino',
+  // and every instrumented client the app actually uses:
+  'mysql2',
+  'redis',
+],
+```
+
+Listing the OpenTelemetry packages is not enough on its own - the *targets*
+matter. An app with `mysql2` missing from that list starts cleanly, exports
+HTTP spans, and produces no database spans at all.
+
+To check a build rather than trust the config, look for the package's
+internals in the server output:
+
+```bash
+grep -rl "sqlstring\|PoolConnection" .next/server --include="*.js"   # Next
+ls .output/server/_libs | grep mysql2                                  # Nitro
+```
+
+A hit means it was bundled and will not be traced.
 
 ## Configuration
 
